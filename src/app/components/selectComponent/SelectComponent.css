@@ -1,0 +1,36 @@
+.select-component::before,
+.select-component::after {
+    --size: 0.3rem;
+    position: absolute;
+    content: "";
+    right: 1rem;
+    pointer-events: none;
+}
+
+.select-component::before {
+    border-left: var(--size) solid transparent;
+    border-right: var(--size) solid transparent;
+    border-bottom: var(--size) solid black;
+    top: 40%;
+}
+
+.select-component::after {
+    border-left: var(--size) solid transparent;
+    border-right: var(--size) solid transparent;
+    border-top: var(--size) solid black;
+    top: 55%;
+}
+
+.select-component select:focus {
+    outline-color: #2f82d6;
+}
+
+.select-component {
+    position: relative;
+    width: 200px;
+    font-size: 14px;
+}
+
+.select-component select {
+    width: 200px;
+}

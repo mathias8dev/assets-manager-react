@@ -1,22 +1,11 @@
 import React, {useEffect, useState} from 'react';
+import MediaItem from "@/app/domain/dto/MediaItem";
+import FileTextIcon from "@rsuite/icons/Page";
 
-interface MediaItem {
-    id?: number;
-    name: string;
-    altText?: string;
-    title?: string;
-    description?: string;
-    downloadUrl?: string;
-    mimeType?: string;
-    size?: number;
-    uploadDate?: Date;
-    uploadedBy?: string;
-    uploadedTo?: string;
-    dimensions?: string;
-}
 
 interface MediaGridProps {
     inSelectionMode?: boolean;
+    multipleSelection?: boolean;
     items: MediaItem[];
     selectedItemIds?: number[];
     onSelectedItemsIdsChanged?: (ids: number[]) => void;
@@ -50,20 +39,33 @@ const renderMediaItem = (item: MediaItem) => {
     }
     return (
         <div style={styles.filePreview}>
-            <span style={styles.fileName}>{item.name}</span>
+            <FileTextIcon style={{
+                width: 64,
+                height: 64,
+                color: '#999'
+            }}/>
         </div>
     )
 }
 
-const MediaGridComponent: React.FC<MediaGridProps> = ({inSelectionMode, items, selectedItemIds = [], onSelectedItemsIdsChanged, onItemClick}) => {
+const MediaGridComponent: React.FC<MediaGridProps> = ({
+                                                          inSelectionMode,
+                                                          multipleSelection = true,
+                                                          items,
+                                                          selectedItemIds = [],
+                                                          onSelectedItemsIdsChanged,
+                                                          onItemClick
+                                                      }) => {
 
     const [selectedItems, setSelectedItems] = useState<number[]>([]);
     const toggleSelection = (id: number) => {
         let updated: number[] = [];
         if (selectedItems.includes(id)) {
             updated = selectedItems.filter((item) => item !== id);
-        } else {
+        } else if (multipleSelection || selectedItems.length === 0) {
             updated = [...selectedItems, id];
+        } else if (!multipleSelection) {
+            updated = [id];
         }
         setSelectedItems(updated);
         onSelectedItemsIdsChanged?.(updated);

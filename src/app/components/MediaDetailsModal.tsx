@@ -1,5 +1,5 @@
 import * as React from "react"
-import {useMemo} from "react"
+import {useEffect} from "react"
 import {Button, Divider, IconButton, Input, Text} from "rsuite";
 import ArrowLeftLineIcon from "@rsuite/icons/ArrowLeftLine";
 import ArrowRightLineIcon from "@rsuite/icons/ArrowRightLine";
@@ -9,6 +9,7 @@ import MetadataField from "@/app/components/MetadataField";
 import {readableSize} from "@/app/domain/utils/functions";
 import Textarea from "@/app/components/Textarea";
 import MediaItemRenderer from "@/app/components/MediaItemRenderer";
+import UpdateMediaRequestDto from "@/app/domain/dto/UpdateMediaRequestDto";
 
 
 export type MediaDetailsModalProps = {
@@ -17,6 +18,8 @@ export type MediaDetailsModalProps = {
     disablePreviousButton?: boolean;
     disableNextButton?: boolean;
     onDeleteMediaItem?: (mediaItem: MediaItem) => void;
+    onCopyUrlToClipboard?: (mediaItem: MediaItem) => void;
+    onSaveMetadataChanges?: (updatedData: UpdateMediaRequestDto) => void;
     onNextMediaItem?: () => void;
     onPreviousMediaItem?: () => void
     onClose?: () => void;
@@ -30,27 +33,43 @@ const MediaDetailsModal: React.FC<MediaDetailsModalProps> = ({
                                                                  onPreviousMediaItem,
                                                                  disablePreviousButton,
                                                                  disableNextButton,
+                                                                 onCopyUrlToClipboard,
+                                                                 onSaveMetadataChanges,
                                                                  mediaItem
                                                              }) => {
 
-    const [updatedMetaData, setUpdatedMetaData] = React.useState<MediaItem>(mediaItem)
+    const [updatedMetadata, setUpdatedMetadata] = React.useState<MediaItem>(mediaItem)
+    const [metadataChanged, setMetadataChanged] = React.useState(false)
 
-    const onUpdateMetaData = (key: keyof MediaItem, value: string | number | undefined) => {
+    const onUpdateMetadata = (key: keyof MediaItem, value: string | number | undefined) => {
         console.log("onUpdate mediaItem", key, value)
-        if (updatedMetaData) {
-            setUpdatedMetaData({
-                ...updatedMetaData,
+        if (updatedMetadata) {
+            setUpdatedMetadata({
+                ...updatedMetadata,
                 [key]: value
             })
         }
     }
 
-    const mediaItemDifferedMemo = useMemo(() => {
-        if (mediaItem && updatedMetaData) {
-            return mediaItemDiffered(mediaItem, updatedMetaData)
-        }
-        return false
-    }, [updatedMetaData])
+    useEffect(() => {
+        console.log("The mediaItem is ", mediaItem)
+        setUpdatedMetadata(mediaItem)
+    }, [mediaItem]);
+
+
+    useEffect(() => {
+        setMetadataChanged(mediaItemDiffered(mediaItem ?? {}, updatedMetadata ?? {}))
+    }, [updatedMetadata])
+
+    const handleSaveMetadataChanges = () => {
+        onSaveMetadataChanges?.({
+            id: mediaItem.id,
+            name: updatedMetadata.name ?? mediaItem.name,
+            altText: updatedMetadata.altText,
+            title: updatedMetadata.title,
+            description: updatedMetadata.description
+        })
+    }
 
 
     return (
@@ -62,7 +81,7 @@ const MediaDetailsModal: React.FC<MediaDetailsModalProps> = ({
                         position: "fixed",
                         top: 0,
                         left: 0,
-                        zIndex: 8,
+                        zIndex: 5,
                         height: "100vh",
                         width: "100vw",
                         backgroundColor: "rgba(0, 0, 0, 0.42)",
@@ -87,7 +106,7 @@ const MediaDetailsModal: React.FC<MediaDetailsModalProps> = ({
                             alignItems: "center",
                             backgroundColor: "white",
                             padding: 16,
-                            zIndex: 8,
+                            zIndex: 5,
                             boxShadow: "0 2px 2px rgba(0, 0, 0, 0.21)"
                         }}>
                             <Text size={"xxl"} weight={"semibold"}>Détails du fichier joint</Text>
@@ -171,11 +190,14 @@ const MediaDetailsModal: React.FC<MediaDetailsModalProps> = ({
                                     )}
                                     <div style={{display: "flex", flexDirection: "column", gap: 16}}>
                                         <div style={{display: "flex", gap: 32}}>
-                                            <Text size={"sm"} style={{textAlign: "right", flexShrink: 0, width: "24%", color: "var(--rs-gray-700)"}}>
+                                            <Text size={"sm"}
+                                                  style={{textAlign: "right", flexShrink: 0, width: "24%", color: "var(--rs-gray-700)"}}>
                                                 Texte alternatif
                                             </Text>
                                             <div style={{flexGrow: 1}}>
-                                                <Textarea style={{height: 100}} onChange={(it: string) => onUpdateMetaData("altText", it)}/>
+                                                <Textarea style={{height: 100}}
+                                                          value={updatedMetadata.altText}
+                                                          onChange={(it: string) => onUpdateMetadata("altText", it)}/>
                                                 <Text size={"sm"} style={{marginTop: 5}}>{"Laissez vide si l'image est purement décorative"}</Text>
                                             </div>
                                         </div>
@@ -184,14 +206,17 @@ const MediaDetailsModal: React.FC<MediaDetailsModalProps> = ({
                                             <Text size={"sm"} style={{textAlign: "right", flexShrink: 0, width: "24%", color: "var(--rs-gray-700)"}}>
                                                 Titre
                                             </Text>
-                                            <Input onChange={(it: string) => onUpdateMetaData("title", it)}/>
+                                            <Input value={updatedMetadata.altText}
+                                                   onChange={(it: string) => onUpdateMetadata("title", it)}/>
                                         </div>
 
                                         <div style={{display: "flex", gap: 32}}>
                                             <Text size={"sm"} style={{textAlign: "right", flexShrink: 0, width: "24%", color: "var(--rs-gray-700)"}}>
                                                 Description
                                             </Text>
-                                            <Textarea style={{height: 100}} onChange={(it: string) => onUpdateMetaData("description", it)}/>
+                                            <Textarea style={{height: 100}}
+                                                      value={updatedMetadata.description}
+                                                      onChange={(it: string) => onUpdateMetadata("description", it)}/>
                                         </div>
 
                                         <div style={{display: "flex", gap: 32}}>
@@ -200,7 +225,9 @@ const MediaDetailsModal: React.FC<MediaDetailsModalProps> = ({
                                             </Text>
                                             <div style={{flexGrow: 1}}>
                                                 <Input disabled value={mediaItem.downloadUrl ?? ""}/>
-                                                <Button style={{fontSize: 10, padding: "2px 8px", marginTop: 8}} appearance={"ghost"}>
+                                                <Button style={{fontSize: 10, padding: "2px 8px", marginTop: 8}}
+                                                        appearance={"ghost"}
+                                                        onClick={() => onCopyUrlToClipboard?.(mediaItem)}>
                                                     Copier l'URL dans le presse-papier
                                                 </Button>
                                             </div>
@@ -211,8 +238,9 @@ const MediaDetailsModal: React.FC<MediaDetailsModalProps> = ({
                                             <div style={{flexGrow: 1}}>
                                                 <Button
                                                     style={{fontSize: 12, padding: "2px 8px", marginTop: 8}}
-                                                    disabled={!mediaItemDifferedMemo}
                                                     appearance={"primary"}
+                                                    disabled={!metadataChanged}
+                                                    onClick={handleSaveMetadataChanges}
                                                 >
                                                     Enregistrer les modifications
                                                 </Button>

@@ -6,6 +6,7 @@ interface RipplesProps {
     onClick?: (ev: React.MouseEvent<HTMLDivElement>) => void;
     className?: string;
     children?: React.ReactNode;
+    style?: React.CSSProperties;
 }
 
 interface RippleStyle extends React.CSSProperties {
@@ -15,6 +16,7 @@ interface RippleStyle extends React.CSSProperties {
 const defaultProps: Required<Omit<RipplesProps, 'children'>> = {
     during: 600,
     color: 'rgba(0, 0, 0, 0.2)',
+    style: {},
     onClick: () => {
     },
     className: ''
@@ -77,7 +79,8 @@ const Ripples: React.FC<RipplesProps> = (props) => {
             style={{
                 position: 'relative',
                 overflow: 'hidden',
-                display: 'inline-block'
+                display: 'inline-block',
+                ...props.style
             }}
         >
             {children}

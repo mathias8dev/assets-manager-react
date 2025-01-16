@@ -1,3 +1,5 @@
+import MediaItem from "@/app/domain/dto/MediaItem";
+
 export const delay = (ms: number): Promise<void> => {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -32,3 +34,22 @@ export function addDays(date: Date, days: number): Date {
     result.setDate(result.getDate() + days);
     return result;
 }
+
+export const getDistinctDatesByDay = (mediaList: MediaItem[]) => {
+    const uniqueDates = new Set<string>();
+
+    return mediaList
+        .map(it => {
+            const uploadDate = it.uploadDate!;
+            const dateKey = uploadDate.toISOString().split('T')[0]; // Extract the date part (YYYY-MM-DD)
+            return {dateKey, label: uploadDate.toDateString(), value: uploadDate.getTime()};
+        })
+        .filter(({dateKey}) => {
+            if (uniqueDates.has(dateKey)) {
+                return false; // Skip if this date already exists
+            }
+            uniqueDates.add(dateKey);
+            return true; // Include this date
+        })
+        .map(({label, value}) => ({label, value})); // Map back to the desired structure
+};

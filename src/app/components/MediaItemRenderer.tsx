@@ -1,6 +1,7 @@
 import MediaItem from "@/app/domain/dto/MediaItem";
 import * as React from "react";
 import FileTextIcon from "@rsuite/icons/Page";
+import ApiRoutes from "@/app/domain/http/ApiRoutes";
 
 export type MediaItemRendererProps = {
     item: MediaItem;
@@ -83,7 +84,7 @@ const MediaItemRenderer: React.FC<MediaItemRendererProps> = ({item, showDetails 
                     overflow: 'hidden'
                 }}>
                     <iframe
-                        src={item.downloadUrl}
+                        src={ApiRoutes.getUrl(ApiRoutes.upload.view(item.uploadedTo!))}
                         title={item.title || item.name}
                         style={{
                             position: 'absolute',

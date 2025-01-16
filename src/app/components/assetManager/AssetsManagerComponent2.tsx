@@ -8,37 +8,70 @@ import CloseIcon from "@rsuite/icons/Close";
 import {useEffect, useMemo, useState} from "react";
 import ActionConfirmationModal from "@/app/components/ActionConfirmationModal";
 import MediaDetailsModal from "@/app/components/MediaDetailsModal";
-import {createRipples} from "@/app/components/createRipples";
 import MediaItem from "@/app/domain/dto/MediaItem";
 import useUpload from "@/app/domain/hooks/apiRequests/upload/useUpload";
 import ApiRoutes from "@/app/domain/http/ApiRoutes";
 import MediaDto, {mediaDtoToMediaItem} from "@/app/domain/dto/MediaDto";
 import MediaGridComponent from "@/app/components/MediaGridComponent";
 import MediaListComponent from "@/app/components/MediaListComponent";
+import {getDistinctDatesByDay} from "@/app/domain/utils/functions";
+import ErrorComponent from "@/app/components/ErrorComponent";
+import {useMediaList} from "@/app/components/assetPicker/components";
+import UpdateMediaRequestDto from "@/app/domain/dto/UpdateMediaRequestDto";
 
-const Ripples = createRipples({
-    color: "rgba(0, 0, 0, 0.22)",
-    during: 300,
-});
 
 enum ViewMode {
     LIST,
     GRID,
 }
 
+export enum MimeType {
+    All = "*/*",
+    Images = "image/*",
+    Audio = "audio/*",
+    Videos = "video/*",
+    Documents = "application/pdf",
+    Spreadsheets = "application/vnd.ms-excel",
+    Archives = "application/zip",
+    Text = "text/*",
+    None = "none",
+    Personal = "personal",
+}
+
+export const supportedMedia = [
+    {name: "Tous les médias", mimeType: MimeType.All},
+    {name: "Images", mimeType: MimeType.Images},
+    {name: "Sons", mimeType: MimeType.Audio},
+    {name: "Vidéos", mimeType: MimeType.Videos},
+    {name: "Documents", mimeType: MimeType.Documents},
+    {name: "Feuilles de calcul", mimeType: MimeType.Spreadsheets},
+    {name: "Archives", mimeType: MimeType.Archives},
+    {name: "Textes", mimeType: MimeType.Text},
+    {name: "Non attachés", mimeType: MimeType.None},
+    {name: "Les miens", mimeType: MimeType.Personal},
+];
 
 const AssetsManagerComponent2 = () => {
     const [selectedViewMode, setSelectedViewMode] = useState(ViewMode.GRID);
-    const [selectedMediaType, setSelectedMediaType] = useState("*/*");
     const [selectedUploadDate, setSelectedUploadDate] = useState(-1);
     const [activateMultipleSelection, setActivateMultipleSelection] = useState(false);
     const [showAskConfirmDeleteModal, setShowAskConfirmDeleteModal] = useState(false);
     const [showMediaUploader, setShowMediaUploader] = useState(false);
-    const [showLoader, setShowLoader] = useState(false);
     const [selectedMediaItemIndex, setSelectedMediaItemIndex] = useState<number | undefined>(undefined);
-    const [mediaList, setMediaList] = useState<MediaItem[]>([]);
-    const [filteredMediaList, setFilteredMediaList] = useState<MediaItem[]>([]);
     const [selectedMedia, setSelectedMedia] = useState<number[]>([]);
+
+    const {
+        mediaList,
+        setMediaList,
+        filteredMediaList,
+        selectedMediaType,
+        setSelectedMediaType,
+        showErrors,
+        showLoader,
+        setShowLoader,
+        handleMediaSearch,
+        fetchMedia
+    } = useMediaList(supportedMedia[0].mimeType);
 
     const [mediaToDeleteIds, setMediaToDeleteIds] = useState<number[]>([]);
 
@@ -46,23 +79,8 @@ const AssetsManagerComponent2 = () => {
 
     const toaster = useToaster()
 
-    const supportedMedia = [
-        {name: "Tous les médias", mimeType: "*/*"},
-        {name: "Images", mimeType: "image/*"},
-        {name: "Sons", mimeType: "audio/*"},
-        {name: "Vidéos", mimeType: "video/*"},
-        {name: "Documents", mimeType: "application/pdf"},
-        {name: "Feuilles de calcul", mimeType: "application/vnd.ms-excel"},
-        {name: "Archives", mimeType: "application/zip"},
-        {name: "Textes", mimeType: "text/*"},
-        {name: "Non attachés", mimeType: "none"},
-        {name: "Les miens", mimeType: "personal"},
-    ];
-
     const uploadDates = useMemo(() => {
-        return filteredMediaList.map(it => {
-            return {label: it.uploadDate!.toDateString(), value: it.uploadDate!.getTime()}
-        })
+        return getDistinctDatesByDay(filteredMediaList)
     }, [filteredMediaList]);
 
     const handleDeleteMediaDefinitely = (ids = selectedMedia) => {
@@ -73,6 +91,7 @@ const AssetsManagerComponent2 = () => {
 
 
     const handleConfirmDeleteMedia = async () => {
+        setShowLoader(true)
         setActivateMultipleSelection(false);
         setShowAskConfirmDeleteModal(false);
         await MediaRequests.deleteAllByIds({
@@ -102,54 +121,11 @@ const AssetsManagerComponent2 = () => {
         })
     };
 
-    const handleMediaSearch = async (keyword: string) => {
-        const filtered = mediaList.filter((item) => item.name.includes(keyword));
-        setFilteredMediaList(filtered);
-    };
-
-    const handleMediaTypeSelected = async (mimeType: string) => {
-        if (!mediaList || mediaList.length === 0) {
-            console.warn("Media list is empty or undefined.");
-            setFilteredMediaList([]);
-            return;
-        }
-
-        const filtered =
-            mimeType === "*/*"
-                ? mediaList
-                : mediaList.filter((item) => {
-                    const [type, subtype] = mimeType.split("/");
-                    const [itemType, itemSubtype] = item.mimeType?.split("/") ?? "";
-
-                    return (
-                        type === itemType &&
-                        (subtype === "*" || subtype === itemSubtype)
-                    );
-                });
-
-        setFilteredMediaList(filtered);
-        setSelectedMediaType(mimeType);
-    };
-
-
-    const fetchMedia = async () => {
-        setShowLoader(true)
-        try {
-            const data = await MediaRequests.findAll()
-            if (data) {
-                console.log("The data is ", data)
-                setMediaList(data)
-            }
-        } catch (e) {
-            console.error(e)
-
-        }
-
-        setShowLoader(false)
-    }
 
     const handleCopyUrlToClipboard = (mediaItem: MediaItem) => {
+        console.log("Handle copy url to clipboard", mediaItem.downloadUrl)
         mediaItem.downloadUrl && navigator.clipboard.writeText(mediaItem.downloadUrl)
+        console.log("Handle copy url to clipboard2", mediaItem.downloadUrl)
         toaster.push(
             <Message type={"success"} closable>
                 L'URL du média a été copiée avec succès.
@@ -158,19 +134,48 @@ const AssetsManagerComponent2 = () => {
         )
     }
 
+    const handleUpdateMediaItem = async (dto: UpdateMediaRequestDto) => {
+        setShowLoader(true)
+        let index = selectedMediaItemIndex!
+        setSelectedMediaItemIndex(undefined)
+        await MediaRequests.updateMedia({
+            data: dto,
+            configParams: {
+                throwOnError: () => false,
+                onError: (e) => {
+                    console.log("An error occurred on update media item", e)
+                    toaster.push(
+                        <Message type={"error"} closable>
+                            Une erreur est survenue en modifiant les métadonnées.
+                        </Message>,
+                        {placement: "topCenter", duration: 5000}
+                    )
+                },
+                onTransform: (data) => mediaDtoToMediaItem(data),
+                onResponse: (updatedMediaItem: MediaItem) => {
+                    setMediaList((prev) => {
+                        prev[index] = updatedMediaItem
+                        return prev
+                    })
+                    toaster.push(
+                        <Message type={"success"} closable>
+                            Les métadonnées du média ont été mises à jour avec succès.
+                        </Message>,
+                        {placement: "topCenter", duration: 5000}
+                    )
+                }
+            }
+        })
+        setSelectedMediaItemIndex(index)
+        setShowLoader(false)
+    }
+
     useEffect(() => {
         if (uploadDates.length > 0) {
             setSelectedUploadDate(uploadDates[0].value);
         }
     }, [uploadDates]);
 
-    useEffect(() => {
-        setFilteredMediaList(mediaList);
-    }, [mediaList]);
-
-    useEffect(() => {
-        fetchMedia()
-    }, []);
 
     return (
         <div style={{padding: 16}}>
@@ -250,7 +255,7 @@ const AssetsManagerComponent2 = () => {
                                 labelKey="name"
                                 valueKey="mimeType"
                                 value={selectedMediaType}
-                                onSelect={(value) => handleMediaTypeSelected(String(value))}
+                                onSelect={(value) => setSelectedMediaType(String(value))}
                                 style={{width: 180}}
                             />
                             <SelectPicker
@@ -296,35 +301,44 @@ const AssetsManagerComponent2 = () => {
             </div>
 
             {/* Media List */}
-            {selectedViewMode === ViewMode.LIST && (
-                <MediaListComponent style={{marginTop: 16}}
-                                    items={filteredMediaList}
-                                    selectedItemIds={selectedMedia}
-                                    onSelectedItemsIdsChanged={setSelectedMedia}
-                                    onCopyUrlToClipboard={handleCopyUrlToClipboard}
-                                    onDeleteDefinitely={handleDeleteMediaDefinitely}
-                                    onItemClick={(mediaItem) => {
-                                        setSelectedMediaItemIndex(mediaList.findIndex(it => it.id === mediaItem.id))
-                                    }}/>
+            {showErrors && (
+                <ErrorComponent onReload={fetchMedia}/>
             )}
 
-            {/* Media Grid */}
-            {selectedViewMode === ViewMode.GRID && (
-                <MediaGridComponent inSelectionMode={activateMultipleSelection}
-                                    items={filteredMediaList}
-                                    selectedItemIds={selectedMedia}
-                                    onSelectedItemsIdsChanged={setSelectedMedia}
-                                    onItemClick={(mediaItem, _) => {
-                                        if (!activateMultipleSelection) {
-                                            setSelectedMediaItemIndex(mediaList.findIndex(it => it.id === mediaItem.id))
-                                        }
-                                    }}/>
+            {!showErrors && (
+                <>
+                    {selectedViewMode === ViewMode.LIST && (
+                        <MediaListComponent style={{marginTop: 16}}
+                                            items={filteredMediaList}
+                                            selectedItemIds={selectedMedia}
+                                            onSelectedItemsIdsChanged={setSelectedMedia}
+                                            onCopyUrlToClipboard={handleCopyUrlToClipboard}
+                                            onDeleteDefinitely={handleDeleteMediaDefinitely}
+                                            onItemClick={(mediaItem) => {
+                                                setSelectedMediaItemIndex(mediaList.findIndex(it => it.id === mediaItem.id))
+                                            }}/>
+                    )}
+
+                    {/* Media Grid */}
+                    {selectedViewMode === ViewMode.GRID && (
+                        <MediaGridComponent inSelectionMode={activateMultipleSelection}
+                                            items={filteredMediaList}
+                                            selectedItemIds={selectedMedia}
+                                            onSelectedItemsIdsChanged={setSelectedMedia}
+                                            onItemClick={(mediaItem, _) => {
+                                                if (!activateMultipleSelection) {
+                                                    setSelectedMediaItemIndex(mediaList.findIndex(it => it.id === mediaItem.id))
+                                                }
+                                            }}/>
+                    )}
+
+                    {/* Footer */}
+                    <Text style={{marginTop: 15, fontSize: 12, textAlign: "center"}}>
+                        Affichage de {filteredMediaList.length} médias sur {mediaList.length}
+                    </Text>
+                </>
             )}
 
-            {/* Footer */}
-            <Text style={{marginTop: 15, fontSize: 12, textAlign: "center"}}>
-                Affichage de {filteredMediaList.length} médias sur {mediaList.length}
-            </Text>
 
             {/* Modals */}
             <MediaDetailsModal
@@ -333,8 +347,10 @@ const AssetsManagerComponent2 = () => {
                 onDeleteMediaItem={(mediaItem: MediaItem) => {
                     setSelectedMediaItemIndex(undefined)
                     setSelectedMedia((prev) => [...prev, mediaItem.id!])
-                    handleDeleteMediaDefinitely()
+                    handleDeleteMediaDefinitely([mediaItem.id!])
                 }}
+                onCopyUrlToClipboard={handleCopyUrlToClipboard}
+                onSaveMetadataChanges={handleUpdateMediaItem}
                 disablePreviousButton={selectedMediaItemIndex === 0}
                 disableNextButton={selectedMediaItemIndex === filteredMediaList.length - 1}
                 onPreviousMediaItem={() => setSelectedMediaItemIndex((prev) => prev! - 1 >= 0 ? prev! - 1 : prev)}
